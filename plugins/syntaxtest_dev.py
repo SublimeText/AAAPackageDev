@@ -352,6 +352,31 @@ class PackagedevSuggestSyntaxTestCommand(sublime_plugin.TextCommand):
         suggest_suffix = get_setting('syntax_test.suggest_scope_suffix', True)
         scope = find_common_scopes(scopes, not suggest_suffix)
 
+        trim_prefix = get_setting('syntax_test.suggest_trimmed_prefix', False)
+        if trim_prefix:
+            above_scopes = [
+                self.view.substr(sublime.Region(
+                    line.line_region.begin() + line.assertion_colrange[1],
+                    line.line_region.end(),
+                )).strip()
+                for line in lines[1:]
+                if line.assertion_colrange[0] <= lines[0].assertion_colrange[0]
+                and line.assertion_colrange[1] >= lines[0].assertion_colrange[1]
+            ]
+
+            for above_scope in reversed(above_scopes):
+                score = sublime.score_selector(scope, above_scope)
+                if score > 0:
+                    scope_parts = scope.split(' ')
+                    matched_count = -(-score.bit_length() // 3) - 1
+
+                    score_of_last_part = score >> matched_count * 3
+                    possible_score_of_last_part = len(scope_parts[matched_count - 1].split('.'))
+                    if score_of_last_part != possible_score_of_last_part:
+                        matched_count -= 1
+
+                    scope = ' '.join(scope_parts[matched_count:])
+
         # delete the existing selection
         if not view.sel()[0].empty():
             view.erase(edit, view.sel()[0])

@@ -31,6 +31,10 @@
     // then suggest meta.example.markdown (true) vs meta.example (false).
     "syntax_test.suggest_scope_suffix": true,
 
+    // Whether to trim leading scopes from suggestions
+    // that are already part of previous assertions.
+    "syntax_test.suggest_trimmed_prefix": false,
+
 
     /// ADVANCED SETTINGS /////////////////////////////////////////////////////////////////////////
 
