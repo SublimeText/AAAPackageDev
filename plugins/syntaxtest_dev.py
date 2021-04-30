@@ -15,6 +15,7 @@ __all__ = (
     'PackagedevAlignSyntaxTestCommand',
     'PackagedevSuggestSyntaxTestCommand',
     'AssignSyntaxTestSyntaxListener',
+    'PackagedevGenerateSyntaxTestsForLineCommand',
 )
 
 logger = logging.getLogger(__name__)
@@ -441,3 +442,122 @@ class AssignSyntaxTestSyntaxListener(sublime_plugin.EventListener):
                 view.settings().set('translate_tabs_to_spaces', True)
 
     on_post_save_async = on_load
+
+
+class ScopeTreeNode:
+    @classmethod
+    def split_scope(cls, scope, *, trim_suffix=False):
+        ret = scope.strip().split(' ')
+        ret = ret[1:]  # Trim root scope
+        if trim_suffix:
+            ret = [
+                '.'.join(part.split('.')[:-1])
+                for part in ret
+            ]
+        return ret
+
+    @classmethod
+    def build_forest(cls, tokens, *, trim_suffix=False):
+        tokens = [
+            (region, cls.split_scope(scope, trim_suffix=trim_suffix))
+            for region, scope in tokens
+        ]
+
+        forest = []
+        for region, scope in tokens:
+            cls.append(forest, region, scope)
+        return forest
+
+    @classmethod
+    def append(cls, forest, region, scopes):
+        if scopes:
+            first, *rest = scopes
+            if forest and forest[-1].scope == first:
+                forest[-1].region = forest[-1].region.cover(region)
+            else:
+                forest.append(cls(region, first))
+
+            cls.append(forest[-1].children, region, rest)
+
+    @classmethod
+    def compact_forest(cls, forest):
+        return [
+            node.compact()
+            for node in forest
+        ]
+
+    def __init__(self, region, scope, children=None):
+        self.region = region
+        self.scope = scope
+        self.children = (children or [])
+
+    def compact(self):
+        if (
+            len(self.children) == 1
+            and self.children[0].region == self.region
+        ):
+            return ScopeTreeNode(
+                self.region,
+                self.scope + ' ' + self.children[0].scope,
+                self.children[0].children
+            )
+        else:
+            return ScopeTreeNode(
+                self.region,
+                self.scope,
+                type(self).compact_forest(self.children)
+            )
+
+
+class PackagedevGenerateSyntaxTestsForLineCommand(sublime_plugin.TextCommand):
+
+    """Autogenerate syntax tests for the selected line of code."""
+
+    def run(self, edit):
+        view = self.view
+        listener = sublime_plugin.find_view_event_listener(view, SyntaxTestHighlighterListener)
+        if not listener.header:
+            return
+
+        suggest_suffix = get_setting('syntax_test.suggest_scope_suffix', True)
+
+        for region in reversed(view.sel()):
+            line = view.line(region.b)
+
+            forest = ScopeTreeNode.compact_forest(
+                ScopeTreeNode.build_forest(
+                    view.extract_tokens_with_scopes(line),
+                    trim_suffix=not suggest_suffix
+                )
+            )
+
+            tests = self.get_test_lines(forest, listener.header, line.begin())
+
+            view.insert(edit, line.end(), ''.join(tests))
+
+    def get_test_lines(self, forest, header, line_start):
+        comment_start = header.comment_start
+        comment_start_len = len(comment_start)
+
+        if header.comment_end is None:
+            comment_end = ''
+        else:
+            comment_end = ' ' + header.comment_end
+
+        def recurse(forest):
+            for child in forest:
+                range_start = max(child.region.begin() - line_start, comment_start_len)
+                range_end = child.region.end() - line_start
+
+                if range_end > range_start:
+                    yield "\n{comment_start}{space}{range} {scope}{comment_end}".format(
+                        comment_start=comment_start,
+                        space=' ' * (range_start - comment_start_len),
+                        range='^' * (range_end - range_start),
+                        scope=child.scope,
+                        comment_end=comment_end,
+                    )
+
+                yield from recurse(child.children)
+
+        return list(recurse(forest))
