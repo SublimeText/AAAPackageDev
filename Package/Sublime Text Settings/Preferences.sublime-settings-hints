@@ -6,6 +6,15 @@
 	// Added in 405x.
 	"auto_complete_disabled": false,
 
+	// Disable auto completions from (all third-party) plugins entirely,
+	// even when explictly requested. Mainly for plugin developers for testing.
+	// Added in 4057.
+	"auto_complete_enable_plugins": true,
+
+	// Shows auto complete when a completion is estimated to be likely.
+	// Allows disabling this logic.
+	"auto_complete_when_likely": true,
+
 	// Set the context menu for this view (type).
 	// Expects a ".sublime-menu" file name.
 	// Useful for plugins that create widget-like views or output panels.
@@ -23,6 +32,11 @@
 	// List of extensions that should be opened with a corresponding syntax.
 	// Only makes sense in syntax-specific settings.
 	"extensions": [],
+
+	// Use the themed title bar. Disabled by default for non-gnome DE's
+	// or when `XDG_CURRENT_DESKTOP` is not set.
+	// Added in 4097.
+	"gtk_client_side_window_decorations": false,
 
 	// Hide the mouse pointer while typing.
 	"hide_pointer_while_typing": true,
