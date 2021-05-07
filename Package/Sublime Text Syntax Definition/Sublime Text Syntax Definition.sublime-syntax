@@ -88,6 +88,13 @@ variables:
 
 contexts:
   comment:
+    ###[ SECTION COMMENT ]######
+    - match: ^#+(\[)\s*([^#\]]+?)\s*(\])#+$
+      scope: comment.line.double-dash.syntax
+      captures:
+        1: punctuation.section.brackets.begin.syntax
+        2: entity.name.section.syntax
+        3: punctuation.section.brackets.end.syntax
     - include: Packages/YAML/YAML.sublime-syntax#comment
 
   main:
