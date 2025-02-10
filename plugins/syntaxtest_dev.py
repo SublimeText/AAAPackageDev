@@ -561,7 +561,7 @@ class ScopeTreeNode:
     def _insert(cls, forest, region, scopes):
         if scopes:
             first, *rest = scopes
-            if forest and forest[-1].scope == first:
+            if forest and forest[-1].scope == first and forest[-1].region.b == region.a:
                 forest[-1].region = forest[-1].region.cover(region)
             else:
                 forest.append(cls(region, first))
